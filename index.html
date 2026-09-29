@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JavaScript Mini Task Tester</title>
+<!-- Lets the website's short address (the folder itself) open the tester.
+     The real page is runner.html; any ?task=... part of the link is kept. -->
+<script>location.replace("runner.html" + location.search + location.hash);</script>
+<meta http-equiv="refresh" content="0; url=runner.html">
+</head>
+<body>
+  <p>Opening the tester… if nothing happens, <a href="runner.html">click here</a>.</p>
+</body>
+</html>

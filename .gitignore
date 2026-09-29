@@ -1,0 +1,6 @@
+# Correct solutions and demo submissions - never publish these.
+examples/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
