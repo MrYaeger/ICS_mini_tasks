@@ -1,6 +1,9 @@
 # Correct solutions and demo submissions - never publish these.
 examples/
 
+# The teacher's settings page runs on this computer only - keep it off the website.
+teacher/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

@@ -5,85 +5,413 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JavaScript Mini Task Tester</title>
 <style>
-  body { font-family: system-ui, Arial, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1f2330; }
-  h1 { font-size: 1.4em; }
-  .controls { background: #f3f4f8; border-radius: 8px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  .controls.dragging { outline: 3px dashed #4f46e5; }
-  select, button, input { font-size: 1em; padding: 6px 10px; }
-  select { max-width: 100%; }
-  button { cursor: pointer; background: #4f46e5; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; }
-  button:hover { background: #4338ca; }
-  button.secondary { background: #dfe2ea; color: #1f2330; padding: 5px 12px; font-size: 0.9em; }
+  :root {
+    --ink: #1f2330; --muted: #5d6475; --panel: #f3f4f8; --line: #dfe2ea;
+    --accent: #4f46e5; --accent-dark: #4338ca; --accent-soft: #eef0ff;
+    --pass: #2e9e54; --pass-soft: #e8f7ec; --fail: #d23b3b; --fail-soft: #fdecec;
+    --tried: #b86e00; --tried-soft: #fff3d6;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, Arial, sans-serif; max-width: 780px; margin: 24px auto; padding: 0 16px 40px;
+         color: var(--ink); background: #fff; line-height: 1.45; }
+  h1 { font-size: 1.4em; margin: 0 0 6px; }
+  .hint { color: var(--muted); font-size: 0.92em; margin: 0; }
+  select, button, input { font: inherit; }
+  button { cursor: pointer; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; }
+  button:hover { background: var(--accent-dark); }
+  button.secondary { background: #dfe2ea; color: var(--ink); padding: 5px 12px; font-size: 0.9em; }
   button.secondary:hover { background: #cfd3de; }
+  button.link { background: none; color: var(--accent); padding: 0; text-decoration: underline; font-size: inherit; }
+  a { color: var(--accent); }
+  code { background: #eceef3; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+
+  .panel { background: var(--panel); border-radius: 8px; padding: 14px 16px; margin-top: 16px; }
+  .panel.dragging { outline: 3px dashed var(--accent); }
+  .step { font-weight: 650; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .step .num { flex: none; background: var(--accent); color: #fff; border-radius: 50%; width: 1.6em; height: 1.6em;
+               display: inline-flex; align-items: center; justify-content: center; font-size: 0.85em; }
+
+  /* step 1: section and task list */
+  .section-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 12px; }
+  .section-row label { font-weight: 600; }
+  #section { padding: 6px 8px; border: 1px solid #c4c8d4; border-radius: 6px; background: #fff; max-width: 100%; }
+  .meter { flex: 1 1 200px; display: flex; align-items: center; gap: 10px; font-size: 0.9em; color: var(--muted); }
+  .meter .bar { flex: 1; height: 8px; background: #dcdfe8; border-radius: 4px; overflow: hidden; min-width: 60px; }
+  .meter .fill { height: 100%; width: 0; background: var(--pass); transition: width 0.3s; }
+  #task-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+               grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); max-height: 52vh; overflow-y: auto; }
+  #task-list .heading { grid-column: 1 / -1; font-weight: 650; font-size: 0.8em; color: var(--muted);
+                        text-transform: uppercase; letter-spacing: 0.05em; margin: 10px 0 0; }
+  #task-list .heading:first-child { margin-top: 0; }
+  #task-list .empty { grid-column: 1 / -1; color: var(--muted); padding: 6px 0; }
+  .task { width: 100%; height: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+          background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .task:hover { background: #fff; border-color: #a9aef0; }
+  .task.selected { border: 2px solid var(--accent); background: var(--accent-soft); padding: 7px 9px; }
+  .task .mark { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #c3c7d2; background: #fff;
+                display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #fff; }
+  .task.done .mark { background: var(--pass); border-color: var(--pass); }
+  .task.tried .mark { border-color: var(--tried); background: var(--tried-soft); }
+  .task .tname { flex: 1; }
+  .task .state { flex: none; font-size: 0.82em; color: var(--muted); white-space: nowrap; }
+  .task.done .state { color: var(--pass); font-weight: 650; }
+  .task.tried .state { color: var(--tried); font-weight: 650; }
+  .task .tag { flex: none; font-size: 0.72em; border: 1px dashed #8a90a0; border-radius: 4px; padding: 0 5px; color: var(--muted); }
+  .task.closed { border-style: dashed; }
+
+  /* step 2: file and run */
+  .chosen { margin: 0 0 10px; }
+  .chosen strong { color: var(--accent-dark); }
+  .run-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .run-row input[type=file] { max-width: 100%; }
   #notice { background: #fff6db; color: #7a4f00; border-radius: 6px; padding: 8px 12px; margin-top: 12px; font-size: 0.95em; }
   #notice:empty { display: none; }
-  details { margin-top: 10px; font-size: 0.9em; color: #555; }
-  details summary { cursor: pointer; }
-  details .inner { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
-  #score { font-weight: bold; font-size: 1.1em; margin: 16px 0 8px; }
+
+  /* results */
+  #score { font-weight: bold; font-size: 1.1em; margin: 18px 0 8px; white-space: pre-wrap; }
   .result { padding: 8px 12px; border-radius: 6px; margin: 6px 0; border-left: 5px solid #ccc; }
-  .pass { background: #e8f7ec; border-left-color: #2e9e54; }
-  .fail { background: #fdecec; border-left-color: #d23b3b; }
+  .pass { background: var(--pass-soft); border-left-color: var(--pass); }
+  .fail { background: var(--fail-soft); border-left-color: var(--fail); }
   .result .name { font-weight: 600; }
   .result .msg { font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; color: #444; margin-top: 4px; white-space: pre-wrap; }
-  .hint { color: #666; font-size: 0.9em; }
-  code { background: #eceef3; padding: 1px 5px; border-radius: 4px; }
+  #printed { margin-top: 14px; }
+  #printed pre { background: #1f2330; color: #e8eaf2; border-radius: 6px; padding: 10px 12px; margin: 8px 0 0;
+                 font-family: ui-monospace, Consolas, monospace; font-size: 0.9em; white-space: pre-wrap; max-height: 300px; overflow: auto; }
+
+  details { margin-top: 12px; }
+  details summary { cursor: pointer; }
+  #custom { margin-top: 28px; font-size: 0.9em; color: var(--muted); }
+  #custom .inner { display: grid; gap: 10px; margin-top: 10px; }
+  #custom .inner p { margin: 0; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+  footer { margin-top: 18px; font-size: 0.85em; color: var(--muted); }
 </style>
 </head>
 <body>
   <h1>JavaScript Mini Task Tester</h1>
-  <p class="hint">1. Choose your task &nbsp; 2. Choose your solution <code>.js</code> file (or drag it onto this page)
-     &nbsp; 3. Click <b>Run Tests</b>. Green = pass, red = fail. Fix your code, save, and click Run again.
-     Your file should contain a plain <code>function</code> with the name the task asks for.</p>
+  <p class="hint">Choose a task, choose your <code>.js</code> file (or drag it onto this page), and click <b>Run Tests</b>.
+     Green means pass and red means fail. Fix your code, save it, and click Run again.</p>
 
-  <div class="controls" id="controls">
-    <label>Task: <select id="task"><option value="">Loading the task list…</option></select></label>
-    <label>Your file: <input type="file" id="file" accept=".js"></label>
-    <button id="run">Run Tests</button>
-  </div>
-  <div id="notice"></div>
+  <section class="panel" aria-labelledby="step1">
+    <p class="step" id="step1"><span class="num">1</span> Choose your task</p>
+    <div class="section-row">
+      <label for="section">Section</label>
+      <select id="section"></select>
+      <div class="meter" id="meter" hidden>
+        <div class="bar"><div class="fill" id="meter-fill"></div></div>
+        <span id="meter-text"></span>
+      </div>
+    </div>
+    <ul id="task-list" aria-label="Tasks"><li class="empty">Loading the task list…</li></ul>
+  </section>
 
-  <!-- Fallback for a task file that isn't on the website yet (teachers trying a new
-       test), and for when this page is opened from a folder instead of the website. -->
+  <section class="panel" id="controls" aria-labelledby="step2">
+    <p class="step" id="step2"><span class="num">2</span> Test your file</p>
+    <p class="chosen">Task: <strong id="chosen">none yet - choose one above</strong></p>
+    <div class="run-row">
+      <label>Your file: <input type="file" id="file" accept=".js"></label>
+      <button id="run">Run Tests</button>
+    </div>
+  </section>
+  <div id="notice" role="status"></div>
+
+  <div id="score" role="status"></div>
+  <div id="results"></div>
+  <details id="printed" open hidden>
+    <summary id="printed-summary">What your file printed</summary>
+    <pre id="printed-lines"></pre>
+    <p class="hint" id="printed-prompt" hidden>Your file used prompt(). On this run nobody answered it, so it gave back
+      null. The tests answer it themselves when they run your file again.</p>
+  </details>
+
+  <!-- For teachers: a task file that isn't on the website yet, and every task including
+       hidden ones. Also the fallback when this page is opened from a folder instead
+       of the website. (Choosing what students see is done on the teacher's own
+       computer: teacher/Choose Tasks.cmd, which isn't part of the website.) -->
   <details id="custom">
-    <summary>Have a task file that isn't in the list?</summary>
+    <summary>Teacher tools</summary>
     <div class="inner">
-      <label>Task file: <input type="file" id="testfile" accept=".js"></label>
-      <button id="back" class="secondary" hidden>Back to the task list</button>
+      <p><label>Try a task file that isn't in the list: <input type="file" id="testfile" accept=".js"></label>
+         <button id="back" class="secondary" hidden>Back to the task list</button></p>
+      <p><a href="runner.html?preview" id="preview-link">See every task, hidden ones included</a></p>
     </div>
   </details>
 
-  <div id="score"></div>
-  <div id="results"></div>
+  <footer>Your ticks are saved in this browser on this computer only.
+    <button type="button" class="link" id="reset">Clear my ticks</button></footer>
 
-  <!-- the shared test engine, and the list of task files the website offers -->
+  <!-- the shared test engine, the list of task files, and the code that loads them -->
   <script src="harness.js"></script>
   <script src="tests/manifest.js"></script>
+  <script src="catalog.js"></script>
   <script>
     (function () {
-      var taskSelect = document.getElementById("task");
-      var fileInput = document.getElementById("file");
-      var testInput = document.getElementById("testfile");
-      var backBtn = document.getElementById("back");
-      var custom = document.getElementById("custom");
-      var controls = document.getElementById("controls");
-      var results = document.getElementById("results");
-      var scoreEl = document.getElementById("score");
-      var noticeEl = document.getElementById("notice");
-      var sandboxFrame = null;
+      var $ = function (id) { return document.getElementById(id); };
+      var sectionSelect = $("section"), taskList = $("task-list");
+      var meter = $("meter"), meterFill = $("meter-fill"), meterText = $("meter-text");
+      var chosenEl = $("chosen"), fileInput = $("file"), controls = $("controls");
+      var noticeEl = $("notice"), scoreEl = $("score"), results = $("results");
+      var printedBox = $("printed"), printedSummary = $("printed-summary"), printedLines = $("printed-lines");
+      var custom = $("custom"), testInput = $("testfile"), backBtn = $("back");
 
-      // The Task dropdown lists runnable parts: { name, group, file, code }.
-      //   catalog - every part of every file named in tests/manifest.js (the website's list)
-      //   picked  - the parts of a task file the user chose themselves; shown instead of
-      //             the catalog while it is set
-      var catalog = [];
-      var picked = null;
+      var ALL = "*";                 // the "All sections" choice
+      var OTHER = "Other tasks";     // the section for a task whose manifest line has no group
+      var PROGRESS_KEY = "miniTaskTester.progress";
+      var SECTION_KEY = "miniTaskTester.section";
+
+      var params = new URLSearchParams(location.search);
+      var preview = params.has("preview"); // ?preview: show hidden tasks too (for the teacher)
+
+      var catalog = [];      // every part of every file in tests/manifest.js: { key, name, group, file, code }
+      var settings = null;   // which parts students can see; null means all of them
+      var picked = null;     // the parts of a task file chosen under Teacher tools; shown instead of the catalog
       var loading = true;
-      var lastCatalogChoice = 0;
+      var section = ALL;
+      var selectedKey = null;
+      var runFrames = [];    // the hidden frames the last run used
 
-      function fail(msg) { scoreEl.textContent = msg; scoreEl.style.color = "#d23b3b"; }
+      function fail(msg) { scoreEl.textContent = msg; scoreEl.style.color = "var(--fail)"; }
       function notice(msg) { noticeEl.textContent = msg || ""; }
-      function clearOutput() { results.innerHTML = ""; scoreEl.textContent = ""; }
+      function clearOutput() {
+        results.innerHTML = "";
+        scoreEl.textContent = "";
+        printedBox.hidden = true;
+      }
+
+      // ------------------------------------------------------------------
+      // Ticks: which tasks this browser has passed, kept in localStorage
+      // ------------------------------------------------------------------
+      // progress[part.key] = { done: passed every test at least once,
+      //                        best: most tests passed, total: tests in the task, last: when }
+      function readStore(key, fallback) {
+        try { var v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }
+        catch (e) { return fallback; }
+      }
+      function writeStore(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private window: nothing saved */ }
+      }
+      var progress = readStore(PROGRESS_KEY, {});
+      if (!progress || typeof progress !== "object") progress = {};
+
+      // "done", "tried" or "new"; null for a hand-picked task file (its runs aren't recorded)
+      function statusOf(part) {
+        if (picked) return null;
+        var p = progress[part.key];
+        return !p ? "new" : p.done ? "done" : "tried";
+      }
+
+      function record(part, summary) {
+        if (picked || !summary.run) return;
+        var p = progress[part.key] || {};
+        if (p.total !== summary.run) { p.best = summary.passed; p.total = summary.run; } // the task changed: start again
+        else p.best = Math.max(p.best || 0, summary.passed);
+        if (summary.passed === summary.run) p.done = true;
+        p.last = new Date().toISOString();
+        progress[part.key] = p;
+        writeStore(PROGRESS_KEY, progress);
+      }
+
+      // ------------------------------------------------------------------
+      // Which tasks are listed, and in which section
+      // ------------------------------------------------------------------
+      function listed() {
+        if (picked) return picked;
+        return catalog.filter(function (p) { return preview || MiniTasks.isOpen(settings, p); });
+      }
+      function sectionOf(part) { return part.group || OTHER; }
+      function sectionNames(list) {
+        var names = [];
+        list.forEach(function (p) { if (names.indexOf(sectionOf(p)) < 0) names.push(sectionOf(p)); });
+        return names;
+      }
+      function inSection(list, name) {
+        return name === ALL ? list : list.filter(function (p) { return sectionOf(p) === name; });
+      }
+      function doneIn(list) {
+        return list.filter(function (p) { return statusOf(p) === "done"; }).length;
+      }
+      function selectedPart() {
+        var list = listed();
+        for (var i = 0; i < list.length; i++) { if (list[i].key === selectedKey) return list[i]; }
+        return null;
+      }
+
+      // ------------------------------------------------------------------
+      // Drawing step 1 (sections and tasks) and step 2's task name
+      // ------------------------------------------------------------------
+      function render() {
+        var list = listed();
+        var names = sectionNames(list);
+        if (section !== ALL && names.indexOf(section) < 0) section = names.length ? names[0] : ALL;
+
+        sectionSelect.innerHTML = "";
+        var counts = function (l) { return picked ? "" : "  (" + doneIn(l) + " of " + l.length + " done)"; };
+        if (names.length > 1) addOption(ALL, "All sections" + counts(list));
+        names.forEach(function (n) { addOption(n, n + counts(inSection(list, n))); });
+        if (!names.length) addOption(ALL, loading ? "Loading…" : "No tasks");
+        sectionSelect.value = section;
+        sectionSelect.disabled = names.length < 2;
+
+        var shown = inSection(list, section);
+        meter.hidden = picked !== null || shown.length === 0;
+        if (!meter.hidden) {
+          var done = doneIn(shown);
+          meterFill.style.width = (done / shown.length * 100) + "%";
+          meterText.textContent = done + " of " + shown.length + " done";
+        }
+
+        taskList.innerHTML = "";
+        if (loading) {
+          taskList.appendChild(item("empty", "Loading the task list…"));
+        } else if (shown.length === 0) {
+          taskList.appendChild(item("empty", catalog.length || picked
+            ? "No tasks are open yet. Your teacher will open them during the course."
+            : "No task list here - see Teacher tools below."));
+        }
+        var lastSection = null;
+        shown.forEach(function (part) {
+          if (section === ALL && names.length > 1 && sectionOf(part) !== lastSection) {
+            lastSection = sectionOf(part);
+            taskList.appendChild(item("heading", lastSection));
+          }
+          var li = document.createElement("li");
+          li.appendChild(taskButton(part));
+          taskList.appendChild(li);
+        });
+
+        var chosen = selectedPart();
+        chosenEl.textContent = chosen ? chosen.name : "none yet - choose one above";
+      }
+
+      function addOption(value, text) {
+        var opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = text;
+        sectionSelect.appendChild(opt);
+      }
+
+      function item(className, text) {
+        var li = document.createElement("li");
+        li.className = className;
+        li.textContent = text;
+        return li;
+      }
+
+      function span(className, text) {
+        var s = document.createElement("span");
+        s.className = className;
+        s.textContent = text;
+        return s;
+      }
+
+      function taskButton(part) {
+        var status = statusOf(part);
+        var p = progress[part.key];
+        var selected = part.key === selectedKey;
+        var closed = preview && !picked && !MiniTasks.isOpen(settings, part);
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "task " + (status || "new") + (selected ? " selected" : "") + (closed ? " closed" : "");
+        b.setAttribute("aria-pressed", selected ? "true" : "false");
+        b.dataset.key = part.key;
+        var mark = span("mark", status === "done" ? "✓" : "");
+        mark.setAttribute("aria-hidden", "true");
+        b.appendChild(mark);
+        b.appendChild(span("tname", part.name));
+        if (closed) b.appendChild(span("tag", "hidden"));
+        if (status === "done") {
+          b.appendChild(span("state", "Done"));
+          b.title = "Done: every test passed";
+        } else if (status === "tried") {
+          b.appendChild(span("state", p.best + "/" + p.total));
+          b.title = "Best so far: " + p.best + " of " + p.total + " tests passed";
+        } else if (status === "new") {
+          b.title = "Not tried yet";
+        }
+        return b;
+      }
+
+      function choose(key) {
+        if (key === selectedKey) return;
+        selectedKey = key;
+        clearOutput();
+        notice("");
+        render();
+        rememberInUrl(selectedPart());
+      }
+
+      // ------------------------------------------------------------------
+      // Links: runner.html?task=Lesson+2a chooses a task
+      // ------------------------------------------------------------------
+      function indexWhere(arr, test) {
+        for (var i = 0; i < arr.length; i++) { if (test(arr[i])) return i; }
+        return -1;
+      }
+
+      // Best match for a task name from a link: exact, then starts-with, then contains.
+      function findEntry(list, query) {
+        var q = String(query || "").trim().toLowerCase();
+        if (!q) return -1;
+        var names = list.map(function (e) { return e.name.toLowerCase(); });
+        var i = names.indexOf(q);
+        if (i < 0) i = indexWhere(names, function (n) { return n.indexOf(q) === 0; });
+        if (i < 0) i = indexWhere(names, function (n) { return n.indexOf(q) >= 0; });
+        return i;
+      }
+
+      // Keep the address bar pointing at the chosen task, so copying the address
+      // gives a link that opens the tester on that task.
+      function rememberInUrl(part) {
+        if (picked || !part) return; // a hand-picked task file isn't linkable
+        var q = "task=" + encodeURIComponent(part.name).replace(/%20/g, "+").replace(/%3A/gi, ":");
+        try { history.replaceState(null, "", location.pathname + "?" + (preview ? "preview&" : "") + q); }
+        catch (e) { /* some browsers refuse this for local files; nothing lost */ }
+      }
+
+      function applyUrlTask() {
+        var want = params.get("task");
+        if (!want) return false;
+        var list = listed();
+        var i = findEntry(list, want);
+        if (i >= 0) {
+          selectedKey = list[i].key;
+          section = sectionOf(list[i]);
+          return true;
+        }
+        notice(findEntry(catalog, want) >= 0
+          ? "The task \"" + want + "\" isn't open yet. Choose one from the list."
+          : "This link asks for a task called \"" + want + "\", which isn't in the list. Choose one from the list.");
+        return false;
+      }
+
+      // ------------------------------------------------------------------
+      // Loading the website's task list
+      // ------------------------------------------------------------------
+      function load() {
+        if (location.protocol === "file:") {
+          // A page opened straight from a folder can't read the files beside it.
+          finishLoading("This page was opened from a folder, so the task list isn't available here. " +
+            "Use the website, or choose a task's .test.js file under Teacher tools.");
+          return;
+        }
+        Promise.all([MiniTasks.loadCatalog(), MiniTasks.loadSettings()]).then(function (got) {
+          catalog = got[0].parts;
+          settings = got[1].settings;
+          var problems = got[0].problems.concat(got[1].problem ? [got[1].problem] : []);
+          finishLoading(problems.length ? "Couldn't load " + problems.join("; ") + "." : "");
+        });
+      }
+
+      function finishLoading(message) {
+        loading = false;
+        if (message) notice(message);
+        if (!applyUrlTask()) {
+          var saved = readStore(SECTION_KEY, null);
+          var names = sectionNames(listed());
+          section = saved !== null && (saved === ALL || names.indexOf(saved) >= 0) ? saved : (names[0] || ALL);
+        }
+        if (catalog.length === 0) custom.open = true;
+        render();
+      }
 
       // ------------------------------------------------------------------
       // File slots
@@ -140,203 +468,197 @@
       var fileSlot = makeSlot(fileInput);
 
       // ------------------------------------------------------------------
-      // Sandbox: running test files and student files
+      // Running the student's file
       // ------------------------------------------------------------------
-      // Each run gets a brand-new invisible iframe to execute code in, so stale
-      // functions from a previous run (e.g. one you renamed) can't fake a pass.
-      function freshSandbox() {
-        if (sandboxFrame) { sandboxFrame.remove(); }
-        sandboxFrame = document.createElement("iframe");
-        sandboxFrame.style.display = "none";
-        document.body.appendChild(sandboxFrame);
-        var win = sandboxFrame.contentWindow;
-        win.console = window.console; // share our console so the harness can capture console.log
-        return win;
+      function clearFrames() {
+        runFrames.forEach(function (f) { f.remove(); });
+        runFrames = [];
       }
 
-      // Run the test-definition code in a sandbox and collect what it registers.
-      // Returns { win: sandbox window, tasks: [{name, fn}] }; throws with a readable message.
-      function loadTestCode(testCode) {
-        var win = freshSandbox();
-        var tasks = [];
-        win.registerTask = function (name, fn) { tasks.push({ name: name, fn: fn }); };
-        try {
-          win.eval(testCode);
-        } catch (e) {
-          throw new Error("The task file could not run: " + e.message);
-        }
-        if (tasks.length === 0) {
-          throw new Error("That task file didn't register any tasks - is it really a .test.js from the suite?");
-        }
-        return { win: win, tasks: tasks };
-      }
+      // Run the student's file the way a web page runs a <script>, in a brand-new
+      // hidden frame of its own: stale functions from an earlier run (one you renamed,
+      // say) can't fake a pass, and top-level let and const stay visible to the tests.
+      // Returns what the harness needs to know about the file (see createRunner).
+      // options.inputs: the answers prompt() gives, in order.
+      function loadStudent(code, options) {
+        options = options || {};
+        var frame = MiniTasks.newFrame();
+        runFrames.push(frame);
+        var win = frame.contentWindow;
+        var output = [], prompts = [], inputs = (options.inputs || []).slice();
+        var student = { globalObject: win, source: code, output: output, prompts: prompts, error: null, looksLikeTests: false };
 
-      // The parts one task file registers, as dropdown entries.
-      function partsOf(file, group, code) {
-        return loadTestCode(code).tasks.map(function (t) {
-          return { name: t.name, group: group || "", file: file, code: code };
-        });
-      }
-
-      // "clicker_unit1.test.js" -> "Clicker Unit1": the heading for a multi-part
-      // file whose manifest line has no "group".
-      function titleFromFile(file) {
-        return file.replace(/\.test\.js$/, "").split(/[_\-\s]+/).map(function (w) {
-          return w.charAt(0).toUpperCase() + w.slice(1);
-        }).join(" ");
-      }
-
-      // ------------------------------------------------------------------
-      // The Task dropdown
-      // ------------------------------------------------------------------
-      function activeList() { return picked || catalog; }
-
-      // Fill the dropdown from the active list, grouping entries under their "group".
-      function rebuildDropdown(chooseIndex) {
-        var list = activeList();
-        taskSelect.innerHTML = "";
-        if (list.length === 0) {
-          var placeholder = document.createElement("option");
-          placeholder.value = "";
-          placeholder.textContent = loading ? "Loading the task list…" : "No tasks - choose a task file below";
-          taskSelect.appendChild(placeholder);
-          return;
-        }
-        var groups = {};
-        list.forEach(function (entry, i) {
-          var opt = document.createElement("option");
-          opt.value = String(i);
-          opt.textContent = entry.name;
-          if (!entry.group) { taskSelect.appendChild(opt); return; }
-          if (!groups[entry.group]) {
-            groups[entry.group] = document.createElement("optgroup");
-            groups[entry.group].label = entry.group;
-            taskSelect.appendChild(groups[entry.group]);
+        win.console = window.console; // shared, so the harness can capture what functions print
+        win.registerTask = function () { student.looksLikeTests = true; };
+        win.alert = function (message) { output.push(message === undefined ? "" : String(message)); };
+        win.prompt = function (question) {
+          prompts.push(question === undefined ? "" : String(question));
+          return inputs.length ? String(inputs.shift()) : null;
+        };
+        win.confirm = function (question) {
+          prompts.push(question === undefined ? "" : String(question));
+          return inputs.length ? !!inputs.shift() : false;
+        };
+        win.addEventListener("error", function (e) {
+          if (!student.error) {
+            var err = e.error;
+            var message = err && err.name ? err.name + ": " + err.message : String(e.message).replace(/^Uncaught /, "");
+            student.error = {
+              // Chrome words a syntax error in an added script as "Failed to execute 'appendChild' on 'Node': ..."
+              message: message.replace(/Failed to execute '\w+' on '\w+': /, ""),
+              line: e.lineno || null
+            };
           }
-          groups[entry.group].appendChild(opt);
+          e.preventDefault();
         });
-        taskSelect.value = String(list[chooseIndex] ? chooseIndex : 0);
-      }
 
-      function selectedEntry() {
-        return activeList()[Number(taskSelect.value)] || null;
-      }
-
-      function indexWhere(arr, test) {
-        for (var i = 0; i < arr.length; i++) { if (test(arr[i])) return i; }
-        return -1;
-      }
-
-      // Best match for a task name from a link: exact, then starts-with, then contains.
-      function findEntry(list, query) {
-        var q = String(query || "").trim().toLowerCase();
-        if (!q) return -1;
-        var names = list.map(function (e) { return e.name.toLowerCase(); });
-        var i = names.indexOf(q);
-        if (i < 0) i = indexWhere(names, function (n) { return n.indexOf(q) === 0; });
-        if (i < 0) i = indexWhere(names, function (n) { return n.indexOf(q) >= 0; });
-        return i;
-      }
-
-      // ------------------------------------------------------------------
-      // Links: runner.html?task=Lesson+2a preselects a task
-      // ------------------------------------------------------------------
-      function taskFromUrl() {
-        try { return new URLSearchParams(location.search).get("task"); }
-        catch (e) { return null; }
-      }
-
-      // Keep the address bar pointing at the chosen task, so copying the address
-      // gives a link that opens the tester on that task.
-      function rememberInUrl(entry) {
-        if (picked || !entry) return; // a hand-picked task file isn't linkable
-        var q = encodeURIComponent(entry.name).replace(/%20/g, "+").replace(/%3A/gi, ":");
-        try { history.replaceState(null, "", location.pathname + "?task=" + q); }
-        catch (e) { /* some browsers refuse this for local files; nothing lost */ }
-      }
-
-      function applyUrlTask() {
-        var want = taskFromUrl();
-        if (!want) return;
-        var i = findEntry(catalog, want);
-        if (i >= 0) {
-          taskSelect.value = String(i);
-          lastCatalogChoice = i;
-        } else {
-          notice("This link asks for a task called \"" + want + "\", which isn't in the list - choose one from the dropdown.");
+        var stop = Harness.recordPrinting(window.console, output);
+        try {
+          var script = win.document.createElement("script");
+          script.textContent = code;
+          (win.document.body || win.document.documentElement).appendChild(script); // runs it, right now
+        } finally {
+          stop();
         }
+        student.scope = Harness.studentScope(function (src) { return win.eval(src); }, win);
+        student.rerun = function (opts) { return loadStudent(code, opts); };
+        return student;
       }
 
-      // ------------------------------------------------------------------
-      // Loading the website's task list (tests/manifest.js + the files it names)
-      // ------------------------------------------------------------------
-      function loadCatalog() {
-        if (location.protocol === "file:") {
-          // A page opened straight from a folder can't read the files beside it.
-          finishLoading("This page was opened from a folder, so the task list isn't available here. " +
-            "Use the website, or choose the task's .test.js file below.");
+      function errorHint(message) {
+        if (/getElementById|innerText|innerHTML|of null/.test(message)) {
+          return " A mini task file has no page - take out any document.getElementById lines.";
+        }
+        if (/\bctx\b|canvas|getContext/.test(message)) return " A mini task file has no canvas - take out any ctx or canvas lines.";
+        if (/is not defined/.test(message)) return " Check the spelling and the capital letters. If it's meant to be text, it needs \"quotes\".";
+        return "";
+      }
+
+      function showPrinted(student) {
+        var lines = student.output;
+        printedBox.hidden = lines.length === 0 && student.prompts.length === 0;
+        printedSummary.textContent = "What your file printed (" + lines.length + (lines.length === 1 ? " line)" : " lines)");
+        printedLines.textContent = lines.join("\n");
+        printedLines.hidden = lines.length === 0;
+        $("printed-prompt").hidden = student.prompts.length === 0;
+      }
+
+      function runEverything(part, testCode, studentCode) {
+        clearFrames();
+        var loaded;
+        try { loaded = MiniTasks.loadTestCode(testCode); }
+        catch (e) { fail(e.message); return; }
+        runFrames.push(loaded.frame);
+
+        var student = loadStudent(studentCode);
+        showPrinted(student);
+        if (student.looksLikeTests) {
+          fail("Your solution file looks like a TEST file - did you choose the wrong file?");
           return;
         }
-        if (typeof TASK_FILES === "undefined" || !Array.isArray(TASK_FILES)) {
-          finishLoading("tests/manifest.js is missing or broken, so there's no task list. Choose a task file below.");
+        if (student.error) {
+          fail("Your file has an error" + (student.error.line ? " on line " + student.error.line : "") +
+            " and could not run:\n" + student.error.message + errorHint(student.error.message));
           return;
         }
-        var problems = [];
-        Promise.all(TASK_FILES.map(function (item) {
-          return fetch("tests/" + item.file, { cache: "no-cache" })
-            .then(function (r) {
-              if (!r.ok) throw new Error("HTTP " + r.status);
-              return r.text();
-            })
-            .then(function (code) {
-              var parts = partsOf(item.file, item.group, code);
-              if (!item.group && parts.length > 1) {
-                parts.forEach(function (p) { p.group = titleFromFile(item.file); });
-              }
-              return parts;
-            })
-            .catch(function (e) { problems.push(item.file + " (" + e.message + ")"); return []; });
-        })).then(function (lists) {
-          catalog = [].concat.apply([], lists);
-          finishLoading(problems.length ? "Couldn't load " + problems.join("; ") + ". Check tests/manifest.js." : "");
-          applyUrlTask();
-        });
+
+        var chosen = null;
+        loaded.tasks.forEach(function (t) { if (t.name === part.name) chosen = t; });
+        if (!chosen) {
+          fail("Couldn't find a part called \"" + part.name + "\" in " + part.file + " - choose the task again.");
+          return;
+        }
+
+        var runner = window.Harness.createRunner(student.scope.get, student);
+        try { chosen.fn(runner); }
+        catch (e) {
+          runner.runTest("The rest of the tests", function () { return [false, "The tests stopped early: " + e.message]; });
+        }
+        showResults(runner);
+        record(part, runner.summary());
+        render();
       }
 
-      function finishLoading(message) {
-        loading = false;
-        rebuildDropdown(0);
-        if (message) notice(message);
-        if (catalog.length === 0) custom.open = true;
+      function showResults(runner) {
+        results.innerHTML = "";
+        runner.results.forEach(function (r) {
+          var div = document.createElement("div");
+          div.className = "result " + (r.passed ? "pass" : "fail");
+          var name = document.createElement("div");
+          name.className = "name";
+          name.textContent = (r.passed ? "PASS" : "FAIL") + " — " + r.name;
+          div.appendChild(name);
+          if (r.message) {
+            var msg = document.createElement("div");
+            msg.className = "msg";
+            msg.textContent = r.message;
+            div.appendChild(msg);
+          }
+          results.appendChild(div);
+        });
+        var s = runner.summary();
+        var all = s.run > 0 && s.passed === s.run;
+        var pct = s.run ? (s.passed / s.run * 100).toFixed(0) : 0;
+        scoreEl.textContent = "Score: " + s.passed + "/" + s.run + " tests passed (" + pct + "%)" +
+          (all && !picked ? " - task done ✓" : "");
+        scoreEl.style.color = all ? "var(--pass)" : "var(--fail)";
       }
 
       // ------------------------------------------------------------------
       // Events
       // ------------------------------------------------------------------
-      taskSelect.addEventListener("change", function () {
-        clearOutput();
-        if (!picked) lastCatalogChoice = Number(taskSelect.value) || 0;
-        rememberInUrl(selectedEntry());
+      taskList.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest(".task") : null;
+        if (b) choose(b.dataset.key);
       });
 
-      // Choosing a task file yourself swaps the dropdown to that file's parts.
+      sectionSelect.addEventListener("change", function () {
+        section = sectionSelect.value;
+        if (!picked) writeStore(SECTION_KEY, section);
+        render();
+      });
+
+      document.getElementById("run").addEventListener("click", function () {
+        clearOutput();
+        if (!window.Harness || !window.MiniTasks) { fail("harness.js or catalog.js is missing - keep them next to this page."); return; }
+        if (loading) { fail("Still loading the task list - try again in a moment."); return; }
+        var part = selectedPart();
+        if (!part) {
+          fail(listed().length ? "Choose a task first (step 1)." : "Choose the task's .test.js file first (under Teacher tools).");
+          return;
+        }
+        if (fileSlot.isEmpty()) { fail("Choose your solution .js file."); return; }
+
+        // Files are re-read on every click, so Save -> Run picks up your edits.
+        // (A hand-picked task file is re-read too, for teachers editing a test.)
+        var testCode = picked ? testSlot.read() : Promise.resolve(part.code);
+        Promise.all([testCode, fileSlot.read()]).then(function (codes) {
+          runEverything(part, codes[0], codes[1]);
+        }, function () {
+          fail("A file changed on disk since you chose it - choose it again and run.");
+        });
+      });
+
+      // Choosing a task file yourself swaps the list to that file's parts.
       testInput.addEventListener("change", function () {
         if (testSlot.isEmpty()) return;
         testSlot.read().then(function (code) {
           var name = testSlot.name();
           clearOutput();
+          var parts;
           try {
-            picked = partsOf(name, "From " + name, code);
+            parts = MiniTasks.partsOf(name, "From " + name, code);
           } catch (e) {
-            picked = null;
             testSlot.clear();
-            rebuildDropdown(lastCatalogChoice);
             fail(e.message);
             return;
           }
+          picked = parts;
+          section = ALL;
+          selectedKey = parts[0].key;
           notice("");
-          rebuildDropdown(0);
           backBtn.hidden = catalog.length === 0;
+          render();
         }, function () {
           fail("Could not read the task file - choose it again.");
         });
@@ -346,78 +668,18 @@
         picked = null;
         testSlot.clear();
         backBtn.hidden = true;
+        selectedKey = null;
+        section = readStore(SECTION_KEY, ALL);
         clearOutput();
-        rebuildDropdown(lastCatalogChoice);
+        render();
       });
 
-      document.getElementById("run").addEventListener("click", function () {
-        clearOutput();
-        if (!window.Harness) { fail("harness.js is missing - keep harness.js next to this page."); return; }
-        if (loading) { fail("Still loading the task list - try again in a moment."); return; }
-        var entry = selectedEntry();
-        if (!entry) {
-          fail(catalog.length ? "Choose a task first." : "Choose the task's .test.js file first (open the section below).");
-          return;
-        }
-        if (fileSlot.isEmpty()) { fail("Choose your solution .js file."); return; }
-
-        // Files are re-read on every click, so Save -> Run picks up your edits.
-        // (A hand-picked task file is re-read too, for teachers editing a test.)
-        var testCode = picked ? testSlot.read() : Promise.resolve(entry.code);
-        Promise.all([testCode, fileSlot.read()]).then(function (codes) {
-          runEverything(entry.name, entry.file, codes[0], codes[1]);
-        }, function () {
-          fail("A file changed on disk since you chose it - choose it again and run.");
-        });
+      $("reset").addEventListener("click", function () {
+        if (!confirm("Clear the ticks for every task in this browser?")) return;
+        progress = {};
+        writeStore(PROGRESS_KEY, progress);
+        render();
       });
-
-      function runEverything(partName, file, testCode, studentCode) {
-        var loaded;
-        try { loaded = loadTestCode(testCode); }
-        catch (e) { fail(e.message); return; }
-
-        var registeredBefore = loaded.tasks.length;
-        try {
-          loaded.win.eval(studentCode);
-        } catch (e) {
-          fail("Your file has an error and could not run: " + e.message);
-          return;
-        }
-        if (loaded.tasks.length > registeredBefore) {
-          fail("Your solution file looks like a TEST file - did you choose the wrong file?");
-          return;
-        }
-
-        var chosen = null;
-        loaded.tasks.forEach(function (t) { if (t.name === partName) chosen = t; });
-        if (!chosen) {
-          fail("Couldn't find a part called \"" + partName + "\" in " + file + " - choose the task again.");
-          return;
-        }
-
-        var runner = window.Harness.createRunner(function (name) { return loaded.win[name]; });
-        chosen.fn(runner);
-        render(runner);
-      }
-
-      function render(runner) {
-        results.innerHTML = "";
-        runner.results.forEach(function (r) {
-          var div = document.createElement("div");
-          div.className = "result " + (r.passed ? "pass" : "fail");
-          div.innerHTML = '<div class="name">' + (r.passed ? "PASS" : "FAIL") + " — " +
-            escapeHtml(r.name) + "</div>" + (r.message ? '<div class="msg">' + escapeHtml(r.message) + "</div>" : "");
-          results.appendChild(div);
-        });
-        var s = runner.summary();
-        var pct = s.run ? (s.passed / s.run * 100).toFixed(0) : 0;
-        scoreEl.textContent = "Score: " + s.passed + "/" + s.run + " tests passed (" + pct + "%)";
-        scoreEl.style.color = (s.passed === s.run) ? "#2e9e54" : "#d23b3b";
-      }
-
-      function escapeHtml(t) {
-        return String(t).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
-      }
 
       // Drag & drop: drop your solution anywhere on the page. A file whose name
       // ends in .test.js is treated as a task file instead. Where supported, we
@@ -444,8 +706,9 @@
         }
       });
 
-      rebuildDropdown(0);
-      loadCatalog();
+      if (preview) $("preview-link").hidden = true;
+      render();
+      load();
     })();
   </script>
 </body>

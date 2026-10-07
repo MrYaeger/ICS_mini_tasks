@@ -23,19 +23,60 @@ function usage() {
   console.log("  node test.js --batch <submissions_folder> <tests/task.test.js>");
 }
 
-// Run a student's file in an isolated sandbox and return that sandbox.
-// Top-level `function name(){}` declarations attach to the sandbox global,
-// so we can look them up by name (just like Python's get_from_module).
-function loadStudent(file) {
-  var code = fs.readFileSync(file, "utf8");
+// Run a student's code in an isolated sandbox. Returns what the harness needs to
+// know about it: { scope, globalObject, source, output, prompts, error, rerun }.
+// Top-level `function name(){}` and `var` declarations attach to the sandbox
+// global; `let` and `const` are reached through Harness.studentScope. Whatever the
+// file prints while it runs is recorded in `output`, not shown.
+// options.inputs: the answers prompt() gives, in order.
+function runStudentCode(code, filename, options) {
+  options = options || {};
+  var output = [], prompts = [], inputs = (options.inputs || []).slice();
   var sandbox = {
     console: console, Math: Math, JSON: JSON, Date: Date,
     Number: Number, String: String, Boolean: Boolean, Array: Array, Object: Object,
-    parseInt: parseInt, parseFloat: parseFloat, isNaN: isNaN, isFinite: isFinite
+    parseInt: parseInt, parseFloat: parseFloat, isNaN: isNaN, isFinite: isFinite,
+    alert: function (message) { output.push(message === undefined ? "" : String(message)); },
+    prompt: function (question) {
+      prompts.push(question === undefined ? "" : String(question));
+      return inputs.length ? String(inputs.shift()) : null;
+    },
+    confirm: function (question) {
+      prompts.push(question === undefined ? "" : String(question));
+      return inputs.length ? !!inputs.shift() : false;
+    }
   };
   vm.createContext(sandbox);
-  vm.runInContext(code, sandbox, { filename: path.basename(file), timeout: 3000 });
-  return sandbox;
+  var student = { globalObject: sandbox, source: code, output: output, prompts: prompts, error: null };
+  var stop = Harness.recordPrinting(console, output);
+  try {
+    vm.runInContext(code, sandbox, { filename: filename, timeout: 3000 });
+  } catch (e) {
+    student.error = describeError(e, filename);
+  } finally {
+    stop();
+  }
+  student.scope = Harness.studentScope(function (src) { return vm.runInContext(src, sandbox); }, sandbox);
+  student.rerun = function (opts) { return runStudentCode(code, filename, opts); };
+  return student;
+}
+
+// { message, line } for an error the student's file threw while it ran.
+function describeError(e, filename) {
+  var message = e && e.message ? e.message : String(e);
+  if (e && e.name && e.name !== "Error") message = e.name + ": " + message;
+  if (/timed out/.test(message)) message += " (Is there a loop that never ends?)";
+  var where = e && e.stack ? String(e.stack).match(new RegExp(filename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ":(\\d+)")) : null;
+  return { message: message, line: where ? Number(where[1]) : null };
+}
+
+// Load a student's file. Throws if it can't run, like the old loader did.
+function loadStudent(file) {
+  var student = runStudentCode(fs.readFileSync(file, "utf8"), path.basename(file));
+  if (student.error) {
+    throw new Error((student.error.line ? "line " + student.error.line + ": " : "") + student.error.message);
+  }
+  return student;
 }
 
 function loadTests(testFile) {
@@ -47,8 +88,8 @@ function loadTests(testFile) {
 }
 
 function runOne(studentFile, runTests) {
-  var sandbox = loadStudent(studentFile);
-  var runner = Harness.createRunner(function (name) { return sandbox[name]; });
+  var student = loadStudent(studentFile);
+  var runner = Harness.createRunner(student.scope.get, student);
   runTests(runner);
   return runner;
 }
@@ -100,9 +141,19 @@ function main() {
   try { runner = runOne(studentFile, runTestsFn); }
   catch (e) { console.log("ERROR running your code: " + e.message); process.exit(1); }
 
+  var printed = runner.output();
+  if (printed.length) {
+    console.log("\nThe file printed:");
+    printed.forEach(function (line) { console.log("  " + line); });
+  }
   console.log(Harness.formatSummary(runner));
   var s = runner.summary();
   process.exit(s.passed === s.run ? 0 : 1);
 }
 
-main();
+if (require.main === module) {
+  main();
+} else {
+  // For scripts that check task files: load a student's code exactly as this runner does.
+  module.exports = { runStudentCode: runStudentCode, loadStudent: loadStudent };
+}

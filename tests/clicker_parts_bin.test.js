@@ -20,8 +20,8 @@
  * look like a tiny version of the game: variables at the top of the file, and
  * a function that changes them. Each test SETS the variables, CALLS the
  * function, and READS the variables afterwards. For that to work the student must:
- *   - declare the variables at the top of the file with `var`
- *     (the tester cannot see variables made with `let` or `const`)
+ *   - declare the variables at the top of the file with `var` (`let` works
+ *     too, but not `const`: the tester changes them)
  *   - leave out document.getElementById - a mini task file has no page
  * They do not need to call their functions; the tester does.
  */
@@ -33,12 +33,13 @@
 // The mt_ prefix keeps them from clashing with a student's own function names.
 // ============================================================================
 
-// The student's top-level `var`s live on their file's global object, and any
-// function they wrote can lead us to it: a function made by that file's own
-// Function constructor runs in that file's global scope. This works the same
-// way in Node (test.js) and in the browser (runner.html).
+// The student's top-level variables. runner.globals() reads and changes them,
+// let included, in test.js and runner.html. A runner without it (an older copy
+// of the harness) only reaches `var`s: they live on the file's global object,
+// and a function made by that file's own Function constructor returns it.
 function mt_globals(runner, fnName) {
-  return runner.getFn(fnName).constructor("return this")();
+  var g = runner.globals ? runner.globals() : null;
+  return g || runner.getFn(fnName).constructor("return this")();
 }
 
 function mt_show(value) {
@@ -100,8 +101,7 @@ function mt_checkVars(runner, fnName, types) {
     if (typeof got === "undefined") {
       var start = want === "string" ? "\"\"" : want === "boolean" ? "false" : "0";
       return [false, "Couldn't find a variable called " + name + ". Put  var " + name + " = " + start +
-        ";  at the top of your file, outside any function." +
-        " (The tester can't see variables made with let or const, so use var.)"];
+        ";  at the top of your file, outside any function."];
     }
     if (typeof got !== want) {
       var fix = (want === "number" && typeof got === "string") ? " That's text - take the quotes off the number."
@@ -122,10 +122,10 @@ function mt_scenario(runner, fnName, before, calls, expect, hint) {
   var g = mt_globals(runner, fnName);
   var missing = Object.keys(expect).filter(function (k) { return typeof g[k] === "undefined"; });
   if (missing.length > 0) {
-    return [false, "Couldn't find a variable called " + missing[0] + " that the tester can change. Declare it at the top" +
-      " of your file with var - not let, and not const (a const can never change)."];
+    return [false, "Couldn't find a variable called " + missing[0] + ". Declare it at the top of your file with var."];
   }
-  Object.keys(before).forEach(function (k) { g[k] = before[k]; });
+  try { Object.keys(before).forEach(function (k) { g[k] = before[k]; }); }
+  catch (e) { return [false, e.message]; } // a const the tester can't change
   var fn = runner.getFn(fnName);
   var argLists = [];
   if (typeof calls === "number") {
@@ -669,8 +669,9 @@ function runTests_changeJob(runner) {
         return "Now more villagers have jobs than there are villagers. Before adding, check that" +
           " villagers - hunters - fishers (the idle count) - amount won't be below 0.";
       }
-      if (jobs.indexOf("hunter") === -1 && g.hunters !== start.hunters) return "Only the job that was named should change, but hunters changed.";
-      if (jobs.indexOf("fisher") === -1 && g.fishers !== start.fishers) return "Only the job that was named should change, but fishers changed.";
+      var spelling = " Check that job is compared with \"hunter\" and \"fisher\", spelled exactly.";
+      if (jobs.indexOf("hunter") === -1 && g.hunters !== start.hunters) return "Only the job that was named should change, but hunters changed." + spelling;
+      if (jobs.indexOf("fisher") === -1 && g.fishers !== start.fishers) return "Only the job that was named should change, but fishers changed." + spelling;
       if (g.hunters === start.hunters && g.fishers === start.fishers) {
         return "Nothing changed. Compare job with \"hunter\" and \"fisher\" (spelled exactly), and add amount to that job's count.";
       }

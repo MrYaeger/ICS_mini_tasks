@@ -25,8 +25,8 @@
  * variables at the top of the file, and a function with empty () that changes
  * them. Each test SETS the variables, CALLS the function, and READS the
  * variables afterwards. For that to work the student must:
- *   - declare the variables at the top of the file with `var`
- *     (the tester cannot see variables made with `let` or `const`)
+ *   - declare the variables at the top of the file with `var` (`let` works
+ *     too, but not `const`: the tester changes them)
  *   - leave out document.getElementById - a mini task file has no page
  * They do not need to call their function; the tester does.
  */
@@ -36,12 +36,13 @@
 // with anything a student might name their own functions.
 // ============================================================================
 
-// The student's top-level `var`s live on their file's global object, and any
-// function they wrote can lead us to it: a function made by that file's own
-// Function constructor runs in that file's global scope. This works the same
-// way in Node (test.js) and in the browser (runner.html).
+// The student's top-level variables. runner.globals() reads and changes them,
+// let included, in test.js and runner.html. A runner without it (an older copy
+// of the harness) only reaches `var`s: they live on the file's global object,
+// and a function made by that file's own Function constructor returns it.
 function mt_globals(runner, fnName) {
-  return runner.getFn(fnName).constructor("return this")();
+  var g = runner.globals ? runner.globals() : null;
+  return g || runner.getFn(fnName).constructor("return this")();
 }
 
 function mt_show(value) {
@@ -93,8 +94,7 @@ function mt_checkVars(runner, fnName, types) {
     var name = names[i], want = types[name], got = g[name];
     if (typeof got === "undefined") {
       return [false, "Couldn't find a variable called " + name + ". Put  var " + name + " = " +
-        (want === "string" ? "\"\"" : "0") + ";  at the top of your file, outside any function." +
-        " (The tester can't see variables made with let or const, so use var.)"];
+        (want === "string" ? "\"\"" : "0") + ";  at the top of your file, outside any function."];
     }
     if (typeof got !== want) {
       var fix = (want === "number" && typeof got === "string") ? " That's text - take the quotes off the number."
@@ -113,10 +113,10 @@ function mt_scenario(runner, fnName, before, calls, expect, hint) {
   var g = mt_globals(runner, fnName);
   var missing = Object.keys(expect).filter(function (k) { return typeof g[k] === "undefined"; });
   if (missing.length > 0) {
-    return [false, "Couldn't find a variable called " + missing[0] + " that the tester can change. Declare it at the top" +
-      " of your file with var - not let, and not const (a const can never change)."];
+    return [false, "Couldn't find a variable called " + missing[0] + ". Declare it at the top of your file with var."];
   }
-  Object.keys(before).forEach(function (k) { g[k] = before[k]; });
+  try { Object.keys(before).forEach(function (k) { g[k] = before[k]; }); }
+  catch (e) { return [false, e.message]; } // a const the tester can't change
   var fn = runner.getFn(fnName);
   var argLists = [];
   if (typeof calls === "number") {
