@@ -1,5 +1,14 @@
 # JavaScript Mini Task Suite
 
+**October 7 additions:** `invaders_unit2.test.js` now has all 40 parts, **Invaders 0a** to
+**Invaders 9d**, for Invaders Lessons 0-9. Parts 3a-5d practise decisions, geometry, random numbers
+and timers; 6a-9d practise objects, lists and loops. 7a (*Count to Ten*) is a whole-program task, so
+it uses `runner.output()` and `runner.checkOutput()`. The new parts start hidden, like any new
+task: tick them in the settings page as each lesson opens. Sample solutions for every lesson are in
+`examples/invaders_unit2/`. `node scripts/verify_invaders_lessons.cjs` checks them, 48 alternative
+correct solutions and 144 planted mistakes, both ways. In Node, 7a is auto-detected from the rest of
+a lesson 7 file (or a file that prints a run of numbers); `TASK=countToTen` forces it.
+
 **October 6 tester changes:**
 - **You choose which tasks students see.** Double-click `teacher/Choose Tasks.cmd`, tick tasks or
   whole sections, and click Publish. See [Choosing which tasks students see](#choosing-which-tasks-students-see).
