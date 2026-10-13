@@ -1,4 +1,47 @@
 {
   "about": "Which mini tasks students can see in the tester. Change it with teacher/Choose Tasks.cmd - see README.md.",
-  "enabled": {}
+  "enabled": {
+    "invaders_unit2.test.js": [
+      "Invaders 0a: Three Variables",
+      "Invaders 0b: Welcome Message",
+      "Invaders 0c: Print a Variable",
+      "Invaders 0d: Score Text",
+      "Invaders 1a: Minutes to Seconds",
+      "Invaders 1b: Distance Travelled",
+      "Invaders 1c: Walk",
+      "Invaders 1d: Average of Three",
+      "Invaders 2a: Pass or Fail",
+      "Invaders 2b: Pause Button",
+      "Invaders 2c: Health Colour",
+      "Invaders 2d: Arrow Keys",
+      "Invaders 3a: Both Positive",
+      "Invaders 3b: Valid Mark",
+      "Invaders 3c: Ride Check",
+      "Invaders 3d: Microwave",
+      "Invaders 4a: Distance",
+      "Invaders 4b: Point in a Rectangle",
+      "Invaders 4c: Overlap on a Line",
+      "Invaders 4d: Circles Touch",
+      "Invaders 5a: Roll a Die",
+      "Invaders 5b: Random Between",
+      "Invaders 5c: Countdown",
+      "Invaders 5d: Traffic Light",
+      "Invaders 6a: A Pet",
+      "Invaders 6b: Describe a Pet",
+      "Invaders 6c: Birthday",
+      "Invaders 6d: Make a Rectangle",
+      "Invaders 7a: Count to Ten",
+      "Invaders 7b: Total",
+      "Invaders 7c: Count Passing",
+      "Invaders 7d: Biggest",
+      "Invaders 8a: Cart Total",
+      "Invaders 8b: Find a Price",
+      "Invaders 8c: Rectangle of Stars",
+      "Invaders 8d: Times Table",
+      "Invaders 9a: Even Numbers",
+      "Invaders 9b: Passing Marks",
+      "Invaders 9c: Remove All",
+      "Invaders 9d: No Duplicates"
+    ]
+  }
 }
